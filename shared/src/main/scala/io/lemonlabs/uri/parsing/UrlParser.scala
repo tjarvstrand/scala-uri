@@ -11,12 +11,15 @@ import scala.util.{Failure, Try}
 class UrlParser(val input: ParserInput)(implicit conf: UriConfig = UriConfig.default) extends Parser with UriParser {
   val _host_end = ":/?# \t\r\n"
 
+  private val MaxPort = 65535
+  private val MaxOctet = 255
+
   def _int(maxLength: Int): Rule1[Int] = rule {
     capture((1 to maxLength).times(Digit)) ~> extractInt
   }
 
   def _octet: Rule1[Int] = rule {
-    _int(3) ~> ((octet: Int) => test(0x00 <= octet && octet <= 0xFF) ~ push(octet))
+    _int(3)
   }
 
   def _scheme: Rule1[String] = rule {
@@ -78,7 +81,7 @@ class UrlParser(val input: ParserInput)(implicit conf: UriConfig = UriConfig.def
   }
 
   def _port: Rule1[Int] = rule {
-    ":" ~ _int(10)
+    ":" ~ capture(oneOrMore(Digit)) ~> extractPort
   }
 
   def _authority: Rule1[Authority] = rule {
@@ -191,8 +194,17 @@ class UrlParser(val input: ParserInput)(implicit conf: UriConfig = UriConfig.def
   }
 
   val extractAbsoluteUrl =
-    (scheme: String, authority: Authority, path: AbsoluteOrEmptyPath, qs: QueryString, f: Option[String]) =>
+    (scheme: String, authority: Authority, path: AbsoluteOrEmptyPath, qs: QueryString, f: Option[String]) => {
+      if (scheme == "file") {
+        if (authority.port.nonEmpty) {
+          throw UriParsingException("URL with 'file' scheme, cannot have a port")
+        }
+        if (authority.userInfo.nonEmpty) {
+          throw UriParsingException("URL with 'file' scheme, cannot have a username/password")
+        }
+      }
       AbsoluteUrl(scheme, authority, path, qs, f)
+    }
 
   val extractProtocolRelativeUrl =
     (authority: Authority, path: AbsoluteOrEmptyPath, qs: QueryString, f: Option[String]) =>
@@ -205,16 +217,31 @@ class UrlParser(val input: ParserInput)(implicit conf: UriConfig = UriConfig.def
 
   val extractInt = (num: String) => num.toInt
 
+  val extractPort = (num: String) => {
+    val port = num.toInt
+    // TODO: Add config to allow disabling this for unusual use cases,
+    //  such as: https://github.com/lemonlabsuk/scala-uri/issues/21
+    if (port > MaxPort) {
+      throw UriParsingException(s"Port $port is larger than max allowed $MaxPort")
+    }
+    port
+  }
+
   val extractHexToInt = (num: String) => Integer.parseInt(num, 16)
 
-  val extractIpv4 = (a: Int, b: Int, c: Int, d: Int) => IpV4(a, b, c, d)
+  val extractIpv4 = (a: Int, b: Int, c: Int, d: Int) => {
+    if (a > MaxOctet || b > MaxOctet || c > MaxOctet || d > MaxOctet) {
+      throw UriParsingException(s"IP $a.$b.$c.$d has octet larger than max allowed $MaxOctet")
+    }
+    IpV4(a, b, c, d)
+  }
 
   val extractFullIpv6 = (pieces: immutable.Seq[String]) => IpV6.fromHexPieces(pieces)
 
   val extractIpv6WithEluded = (beforeEluded: immutable.Seq[String], afterEluded: immutable.Seq[String]) => {
     val eladedPieces = 8 - beforeEluded.size - afterEluded.size
     if (eladedPieces < 2) {
-      throw new UriParsingException(
+      throw UriParsingException(
         "IPv6 has too many pieces. Must be either exactly eight hex pieces or fewer than six hex pieces with a '::'"
       )
     }
@@ -273,7 +300,7 @@ class UrlParser(val input: ParserInput)(implicit conf: UriConfig = UriConfig.def
     t.recoverWith {
       case pe @ ParseError(_, _, _) =>
         val detail = pe.format(input)
-        Failure(new UriParsingException(s"Invalid $name could not be parsed. $detail"))
+        Failure(UriParsingException(s"Invalid $name could not be parsed. $detail"))
     }
 
   def parseIpV6(): Try[IpV6] =

@@ -40,7 +40,7 @@ case class PercentDecoder(ignoreInvalidPercentEncoding: Boolean) extends UriDeco
             case None if ignoreInvalidPercentEncoding =>
               go(xs, result += percentByte)
             case _ =>
-              throw new UriDecodeException(s"Encountered '%' followed by a non hex number '$hex'. $errorMessage")
+              throw UriDecodeException(s"Encountered '%' followed by a non hex number '$hex'. $errorMessage")
           }
         case ch :: xs =>
           go(xs, result ++= ch.toString.getBytes(cs))

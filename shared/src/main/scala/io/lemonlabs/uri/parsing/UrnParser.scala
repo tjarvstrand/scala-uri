@@ -28,10 +28,10 @@ class UrnParser(val input: ParserInput)(implicit conf: UriConfig = UriConfig.def
 
   val extractUrnPath = (nid: String, nss: String) => {
     if (nid.length < 2)
-      throw new UriParsingException(s"URN nid '$nid' is too short. Must be at least two character long")
+      throw UriParsingException(s"URN nid '$nid' is too short. Must be at least two character long")
 
     if (nid.head == '-' || nid.last == '-')
-      throw new UriParsingException(s"URN nid '$nid' cannot start or end with a '-'")
+      throw UriParsingException(s"URN nid '$nid' cannot start or end with a '-'")
 
     UrnPath(nid, conf.pathDecoder.decode(nss))
   }
@@ -42,7 +42,7 @@ class UrnParser(val input: ParserInput)(implicit conf: UriConfig = UriConfig.def
     t.recoverWith {
       case pe @ ParseError(_, _, _) =>
         val detail = pe.format(input)
-        Failure(new UriParsingException(s"Invalid $name could not be parsed. $detail"))
+        Failure(UriParsingException(s"Invalid $name could not be parsed. $detail"))
     }
 
   def parseUrnPath(): Try[UrnPath] =

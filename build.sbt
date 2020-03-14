@@ -36,7 +36,9 @@ val sharedSettings = Seq(
     "org.scalatest"     %%% "scalatest"       % "3.1.1"   % Test,
     "org.scalatestplus" %%% "scalacheck-1-14" % "3.1.1.1" % Test,
     "org.scalacheck"    %%% "scalacheck"      % "1.14.3"  % Test,
-    "org.typelevel"     %%% "cats-laws"       % "2.1.1"   % Test
+    "org.typelevel"     %%% "cats-laws"       % "2.1.1"   % Test,
+    "io.circe"          %%% "circe-generic"   % "0.12.3"  % Test,
+    "io.circe"          %%% "circe-parser"    % "0.12.3"  % Test
   ),
   scalacOptions := Seq(
     "-unchecked",
