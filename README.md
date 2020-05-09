@@ -211,7 +211,7 @@ uri match {
 
 In some cases `scalac` will be able to detect instances where not all cases are being matched. For example:
 
-```scala mdoc:reset
+```scala mdoc:reset:warn
 import io.lemonlabs.uri._
 
 Uri.parse("/test") match {
