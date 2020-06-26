@@ -10,6 +10,8 @@ import com.typesafe.tools.mima.core.{
 }
 import com.typesafe.tools.mima.plugin.MimaKeys.{mimaBinaryIssueFilters, mimaPreviousArtifacts, mimaReportBinaryIssues}
 
+val dottyVersion = "0.24.0"
+
 name                            := "scala-uri root"
 scalaVersion in ThisBuild       := "2.13.2"
 crossScalaVersions in ThisBuild := Seq("2.12.11", scalaVersion.value)

@@ -21,6 +21,8 @@ jobs:
       env: PROJECT=scalaUriJVM COVERAGE=coverageOn
     - scala: [2.12.11]
       env: PROJECT=scalaUriJS COVERAGE=coverageOff
+    - scala: [0.24.0]
+      env: PROJECT=scalaUriJVM COVERAGE=coverageOff
 
 before_script:
   - nvm install 10 # nodejs < 10 fails finding URL class
