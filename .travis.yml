@@ -21,7 +21,7 @@ jobs:
       env: PROJECT=scalaUriJVM COVERAGE=coverageOn
     - scala: [2.12.11]
       env: PROJECT=scalaUriJS COVERAGE=coverageOff
-    - scala: [0.24.0]
+    - scala: [0.24.0!]
       env: PROJECT=scalaUriJVM COVERAGE=coverageOff
 
 before_script:
