@@ -1,5 +1,6 @@
 package io.lemonlabs.uri
 import cats.{Eq, Order, Show}
+import io.lemonlabs.uri.encoding.PercentEncoder
 
 case class MediaType(rawValue: Option[String], parameters: Vector[(String, String)]) {
 
@@ -54,6 +55,13 @@ case class MediaType(rawValue: Option[String], parameters: Vector[(String, Strin
 
   override def toString: String =
     rawValue.getOrElse("") + parameters.foldLeft("") { case (str, (key, v)) => s"$str;$key=$v" }
+
+  def normalize(decodeUnreservedChars: Boolean = false): MediaType = copy(
+    rawValue = rawValue.map(PercentEncoder.normalize(_, decodeUnreservedChars)),
+    parameters = parameters.map { case (k, v) =>
+      (PercentEncoder.normalize(k, decodeUnreservedChars), PercentEncoder.normalize(v, decodeUnreservedChars))
+    }
+  )
 }
 
 object MediaType {

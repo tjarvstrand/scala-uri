@@ -105,6 +105,23 @@ class EncodingTests extends AnyFlatSpec with Matchers {
     url.toString should equal("http://theon.github.com/%61%62cde")
   }
 
+  "PercentEncoder" should "normalize percent escape sequence case" in {
+    PercentEncoder.normalize("", decodeUnreserved = false) should equal("")
+    PercentEncoder.normalize("%", decodeUnreserved = false) should equal("%")
+    PercentEncoder.normalize("%2", decodeUnreserved = false) should equal("%2")
+    PercentEncoder.normalize("%F", decodeUnreserved = false) should equal("%F")
+    PercentEncoder.normalize("%f", decodeUnreserved = false) should equal("%f")
+    PercentEncoder.normalize("%2f", decodeUnreserved = false) should equal("%2F")
+    PercentEncoder.normalize("%2fa", decodeUnreserved = false) should equal("%2Fa")
+    PercentEncoder.normalize("%2f%2f", decodeUnreserved = false) should equal("%2F%2F")
+  }
+
+  it should "decode unreserved characters" in {
+    PercentEncoder.normalize("%61", decodeUnreserved = true) should equal("a")
+    PercentEncoder.normalize("%61a", decodeUnreserved = true) should equal("aa")
+    PercentEncoder.normalize("%61a%61", decodeUnreserved = true) should equal("aaa")
+  }
+
   "URI path pchars" should "not be encoded by default" in {
     val url = Url.parse("http://example.com/-._~!$&'()*+,;=:@/test")
     url.toString should equal("http://example.com/-._~!$&'()*+,;=:@/test")

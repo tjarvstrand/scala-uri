@@ -1,6 +1,7 @@
 package io.lemonlabs.uri
 import cats.{Eq, Order, Show}
 import io.lemonlabs.uri.config.{All, ExcludeNones, UriConfig}
+import io.lemonlabs.uri.encoding.PercentEncoder
 import io.lemonlabs.uri.parsing.UrlParser
 import io.lemonlabs.uri.typesafe.{QueryKey, QueryKeyValue, QueryValue, TraversableParams}
 import io.lemonlabs.uri.typesafe.TraversableParams.ops._
@@ -242,6 +243,15 @@ case class QueryString(params: Vector[(String, Option[String])])(implicit config
 
   override def toString: String =
     toString(config)
+
+  /** Returns this query string normalized according to
+    * <a href="http://www.ietf.org/rfc/rfc3986.txt">RFC 3986</a>
+    */
+  def normalize(decodeUnreservedChars: Boolean = false): QueryString = {
+    copy(params = params.map { case (k, v) =>
+      (PercentEncoder.normalize(k, decodeUnreservedChars), v.map(PercentEncoder.normalize(_, decodeUnreservedChars)))
+    })
+  }
 }
 
 object QueryString {

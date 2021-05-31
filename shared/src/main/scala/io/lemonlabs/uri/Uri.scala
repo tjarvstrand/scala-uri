@@ -3,6 +3,7 @@ package io.lemonlabs.uri
 import java.util.Base64
 import cats.{Eq, Order, Show}
 import io.lemonlabs.uri.config.UriConfig
+import io.lemonlabs.uri.encoding.PercentEncoder
 import io.lemonlabs.uri.parsing.{UriParser, UrlParser, UrnParser}
 import io.lemonlabs.uri.redact.Redactor
 import io.lemonlabs.uri.typesafe.{
@@ -497,8 +498,8 @@ sealed trait Url extends Uri {
       false
   }
 
-  /** @return this URL resolved with the given URL as the base according to section 5.2.2 Transform references of
-    * <a href="http://www.ietf.org/rfc/rfc3986.txt">RFC 3986</a>.
+  /** @return this URL resolved with the given URL as the base according to section 5.2.2 Transform References of
+    *         <a href="http://www.ietf.org/rfc/rfc3986.txt">RFC 3986</a>.
     */
   def resolve(base: UrlWithScheme, strict: Boolean = false): UrlWithScheme = {
     schemeOption match {
@@ -529,6 +530,17 @@ sealed trait Url extends Uri {
   }
 
   private def removeDotSegments: Self = withPath(path.removeDotSegments)
+
+  /** @return this URL with its case normalized according to section 6.2.2.1 Section Path Normalization of
+    *         <a href="http://www.ietf.org/rfc/rfc3986.txt">RFC 3986</a>.
+    */
+  def normalize(decodeUnreservedChars: Boolean = false): Self
+
+  /** @return this URL normalized according to section 2.7.3 of
+    *         <a href="http://www.ietf.org/rfc/rfc3986.txt">RFC 7230</a>.
+    */
+  def normalizeHttp: Self
+
 }
 
 object Url {
@@ -641,6 +653,14 @@ final case class RelativeUrl(path: UrlPath, query: QueryString, fragment: Option
   def removePassword(): RelativeUrl = this
   def mapUser(f: String => String): RelativeUrl = this
   def mapPassword(f: String => String): RelativeUrl = this
+
+  def normalize(decodeUnreservedChars: Boolean = false): Self = copy(
+    path = path.normalize(decodeUnreservedChars),
+    query = query.normalize(decodeUnreservedChars),
+    fragment = fragment.map(PercentEncoder.normalize(_, decodeUnreserved = decodeUnreservedChars))
+  )
+
+  def normalizeHttp: Self = normalize(decodeUnreservedChars = true)
 }
 
 object RelativeUrl {
@@ -887,6 +907,17 @@ final case class ProtocolRelativeUrl(authority: Authority,
 
   private[uri] def toString(c: UriConfig, hostToString: Host => String): String =
     "//" + authority.toString(c, hostToString) + path.toString(c) + queryToString(c) + fragmentToString(c)
+
+  def normalize(decodeUnreservedChars: Boolean = false): Self = {
+    copy(
+      authority = authority.normalize(decodeUnreservedChars),
+      path = path.normalize(decodeUnreservedChars),
+      query = query.normalize(decodeUnreservedChars),
+      fragment = fragment.map(PercentEncoder.normalize(_, decodeUnreservedChars))
+    )
+  }
+
+  def normalizeHttp: Self = normalize(decodeUnreservedChars = true)
 }
 
 object ProtocolRelativeUrl {
@@ -953,6 +984,28 @@ final case class AbsoluteUrl(scheme: String,
 
   private[uri] def toString(c: UriConfig, hostToString: Host => String): String =
     scheme + "://" + authority.toString(c, hostToString) + path.toString(c) + queryToString(c) + fragmentToString(c)
+
+  def normalize(decodeUnreservedChars: Boolean = false): Self = copy(
+    scheme = scheme.toLowerCase,
+    authority = authority.normalize(decodeUnreservedChars),
+    path = path.normalize(decodeUnreservedChars),
+    query = query.normalize(decodeUnreservedChars),
+    fragment = fragment.map(PercentEncoder.normalize(_, decodeUnreservedChars))
+  )
+
+  def normalizeHttp: Self = {
+    val scheme = this.scheme.toLowerCase
+    copy(
+      scheme = scheme,
+      authority = authority.copy(
+        port = authority.port.filter {
+          case 80  => scheme != "http"
+          case 443 => scheme != "https"
+          case _   => true
+        }
+      )
+    ).normalize(decodeUnreservedChars = true)
+  }
 }
 
 object AbsoluteUrl {
@@ -1086,6 +1139,15 @@ final case class SimpleUrlWithoutAuthority(scheme: String, path: UrlPath, query:
 
   private[uri] def toString(c: UriConfig): String =
     scheme + ":" + path.toString(c) + queryToString(c) + fragmentToString(c)
+
+  def normalize(decodeUnreservedChars: Boolean = false): Self = copy(
+    scheme = scheme.toLowerCase,
+    path = path.normalize(decodeUnreservedChars),
+    query = query.normalize(decodeUnreservedChars),
+    fragment = fragment.map(PercentEncoder.normalize(_, decodeUnreservedChars))
+  )
+
+  def normalizeHttp: Self = normalize(decodeUnreservedChars = true)
 }
 
 object SimpleUrlWithoutAuthority {
@@ -1202,6 +1264,11 @@ final case class DataUrl(mediaType: MediaType, base64: Boolean, data: Array[Byte
     */
   override def equalsUnordered(other: Uri): Boolean =
     this == other
+
+  def normalize(decodeUnreservedChars: Boolean = false): Self = copy(
+    mediaType = mediaType.normalize(decodeUnreservedChars)
+  )
+  def normalizeHttp: Self = normalize(true)
 }
 
 object DataUrl {
@@ -1290,6 +1357,14 @@ final case class ScpLikeUrl(override val user: Option[String], override val host
     */
   override def equalsUnordered(other: Uri): Boolean =
     this == other
+
+  def normalize(decodeUnreservedChars: Boolean = false): Self = copy(
+    user = user.map(PercentEncoder.normalize(_, decodeUnreservedChars)),
+    host = host.normalize,
+    path = path.normalize(decodeUnreservedChars)
+  )
+
+  def normalizeHttp: Self = normalize(decodeUnreservedChars = true)
 }
 
 object ScpLikeUrl {

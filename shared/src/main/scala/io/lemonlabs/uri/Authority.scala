@@ -1,6 +1,7 @@
 package io.lemonlabs.uri
 import cats.{Eq, Order, Show}
 import io.lemonlabs.uri.config.UriConfig
+import io.lemonlabs.uri.encoding.PercentEncoder
 import io.lemonlabs.uri.parsing.UrlParser
 
 import scala.util.Try
@@ -81,6 +82,12 @@ case class Authority(userInfo: Option[UserInfo], host: Host, port: Option[Int])(
 
   def toStringRaw: String =
     toString(config.withNoEncoding, _.toString)
+
+  /** Returns this authority normalized according to
+    * <a href="http://www.ietf.org/rfc/rfc3986.txt">RFC 3986</a>
+    */
+  def normalize(decodeUnreservedChars: Boolean = false): Authority =
+    copy(userInfo.map(_.normalize(decodeUnreservedChars)), host.normalize, port)
 }
 
 object Authority {
@@ -126,6 +133,11 @@ case class UserInfo(user: String, password: Option[String])(implicit
 
   def toStringRaw: String =
     toString(config.withNoEncoding)
+
+  def normalize(decodeUnreserved: Boolean = false): UserInfo = copy(
+    user = PercentEncoder.normalize(user, decodeUnreserved),
+    password = password.map(PercentEncoder.normalize(_, decodeUnreserved))
+  )
 }
 object UserInfo {
   def apply(user: String): UserInfo =

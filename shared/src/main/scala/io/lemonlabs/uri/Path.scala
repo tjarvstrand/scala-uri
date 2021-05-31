@@ -1,6 +1,7 @@
 package io.lemonlabs.uri
 import cats.{Eq, Order, Show}
 import io.lemonlabs.uri.config.UriConfig
+import io.lemonlabs.uri.encoding.PercentEncoder
 import io.lemonlabs.uri.parsing.{UrlParser, UrnParser}
 import io.lemonlabs.uri.typesafe.{PathPart, TraversablePathParts}
 import io.lemonlabs.uri.typesafe.PathPart.ops._
@@ -51,6 +52,7 @@ object PathParts {
 }
 
 sealed trait UrlPath extends Path {
+  type Self <: UrlPath
   def withParts(parts: Iterable[String]): UrlPath
 
   def toRootless: RootlessPath
@@ -91,12 +93,16 @@ sealed trait UrlPath extends Path {
     }
   }
 
+  /** Returns this path normalized according to
+    * <a href="http://www.ietf.org/rfc/rfc3986.txt">RFC 3986</a>
+    */
+  def normalize(decodeUnreservedChars: Boolean = false): Self
 }
 
 object UrlPath {
   def empty: UrlPath = EmptyPath
 
-  val slash: UrlPath = AbsolutePath(Vector.empty)
+  val slash: AbsolutePath = AbsolutePath(Vector.empty)
 
   def apply(parts: Iterable[String]): UrlPath =
     if (parts.isEmpty) EmptyPath
@@ -134,6 +140,7 @@ object UrlPath {
   *   When authority is present, the path must either be empty or begin with a slash ("/") character.
   */
 sealed trait AbsoluteOrEmptyPath extends UrlPath {
+  type Self <: AbsoluteOrEmptyPath
   def toAbsoluteOrEmpty: AbsoluteOrEmptyPath =
     this
 
@@ -147,6 +154,7 @@ object AbsoluteOrEmptyPath {
 }
 
 case object EmptyPath extends AbsoluteOrEmptyPath {
+  type Self = EmptyPath.type
   def isEmpty: Boolean =
     true
 
@@ -166,10 +174,13 @@ case object EmptyPath extends AbsoluteOrEmptyPath {
     path.isEmpty
 
   override private[uri] def toString(c: UriConfig): String = ""
+
+  override def normalize(decodeUnreservedChars: Boolean = false): EmptyPath.type = this
 }
 
 final case class RootlessPath(parts: Vector[String])(implicit val config: UriConfig = UriConfig.default)
     extends UrlPath {
+  type Self = RootlessPath
   def toRootless: RootlessPath =
     this
 
@@ -187,6 +198,9 @@ final case class RootlessPath(parts: Vector[String])(implicit val config: UriCon
     */
   def isEmpty: Boolean =
     parts.isEmpty
+
+  override def normalize(decodeUnreservedChars: Boolean = false): RootlessPath =
+    copy(parts = removeDotSegments.parts.map(PercentEncoder.normalize(_, decodeUnreservedChars)))
 }
 
 object RootlessPath {
@@ -202,6 +216,7 @@ object RootlessPath {
   */
 final case class AbsolutePath(parts: Vector[String])(implicit val config: UriConfig = UriConfig.default)
     extends AbsoluteOrEmptyPath {
+  type Self = AbsolutePath
   def toAbsolute: AbsolutePath =
     this
 
@@ -215,6 +230,9 @@ final case class AbsolutePath(parts: Vector[String])(implicit val config: UriCon
 
   override private[uri] def toString(c: UriConfig): String =
     "/" + super.toString(c)
+
+  def normalize(decodeUnreservedChars: Boolean = false): AbsolutePath =
+    copy(parts = removeDotSegments.parts.map(PercentEncoder.normalize(_, decodeUnreservedChars)))
 }
 
 object AbsolutePath {
